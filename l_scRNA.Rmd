@@ -1,0 +1,93 @@
+```{r}
+library(Seurat)
+library(ggplot2) 
+
+# Step 1: Load gene count data for two tissues (Pancreas and Spleen)
+Pancreas_counts <- read.csv("E:/SCRNA/l_scRNA/FACS/Pancreas-counts.csv", row.names = 1)
+Spleen_counts <- read.csv("E:/SCRNA/l_scRNA/FACS/Spleen-counts.csv", row.names = 1)
+
+# Load additional metadata files if needed for annotation purposes
+annotations <- read.csv("E:/SCRNA/l_scRNA/annotations_FACS.csv") 
+metadata <- read.csv("E:/SCRNA/l_scRNA/metadata_FACS.csv") 
+# Step 2: Create a Seurat object for the Pancreas dataset
+# A Seurat object is created with raw counts; we specify "Pancreas_scRNA" as the project name
+
+s_obj_Pancreas <- CreateSeuratObject(counts = Pancreas_counts, project = "Pancreas_scRNA")
+
+```
+
+
+
+```{r}
+# Note: Here we are focusing on analyzing the Pancreas tissue. 
+# The Spleen dataset could be integrated later if needed.
+
+# (Optional Step) Code to merge datasets if required
+# Uncomment and modify as needed to combine Pancreas and Spleen datasets
+# P_S <- merge(Pancreas_counts, y = c(Spleen_counts))
+
+# Step 3: Calculate mitochondrial content percentage
+# Adding a column to the metadata with the percentage of mitochondrial gene expression
+#P_S <- merge(Pancreas_counts, y=c(Spleen_counts))
+             
+```
+
+```{r} 
+# Note: Here we are focusing on analyzing the Pancreas tissue. 
+# The Spleen dataset could be integrated later if needed.
+
+# (Optional Step) Code to merge datasets if required
+# Uncomment and modify as needed to combine Pancreas and Spleen datasets
+# P_S <- merge(Pancreas_counts, y = c(Spleen_counts))
+
+# Step 3: Calculate mitochondrial content percentage
+# Adding a column to the metadata with the percentage of mitochondrial gene expression
+s_obj_Pancreas <- PercentageFeatureSet(s_obj_Pancreas, pattern = "^MT-", col.name = "percent.mt")
+# Step 4: Plot violin plots for Quality Control (QC)
+# Visualize RNA features, counts, and mitochondrial content
+VlnPlot(s_obj_Pancreas, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+# Step 5: Apply QC filters to remove poor-quality cells
+# Filtering cells with less than 500 genes and more than 20,000 genes,
+# and removing cells with more than 10% mitochondrial content
+s_obj_Pancreas <- subset(s_obj_Pancreas, subset = nFeature_RNA > 500 & nFeature_RNA < 20000 & percent.mt < 10)
+```
+```{r} 
+# Step 6: Normalize and scale the data
+# Normalizing the data using a standard log-normalization method
+s_obj_Pancreas <- NormalizeData(object =s_obj_Pancreas, verbose = FALSE) 
+# Identify the 3000 most variable features (genes) 
+s_obj_Pancreas <- FindVariableFeatures(object =s_obj_Pancreas, nfeatures = 3000, verbose = FALSE, selection.method = 'vst')
+# Scale the data to prepare for PCA
+s_obj_Pancreas <- ScaleData(s_obj_Pancreas, verbose = FALSE)
+# Step 7: Dimensionality reduction with PCA
+# Performing PCA to reduce dimensions and identify principal components
+s_obj_Pancreas <- RunPCA(s_obj_Pancreas, npcs = 20, verbose = FALSE)
+# Step 8: Clustering and UMAP visualization
+# Find neighbors based on PCA and perform clustering analysis
+s_obj_Pancreas <- FindNeighbors(s_obj_Pancreas, dims = 1:20)
+s_obj_Pancreas <- FindClusters(s_obj_Pancreas, resolution = 0.3)
+# Run UMAP for visualization in 2D space and label clusters on the plot
+s_obj_Pancreas <- RunUMAP(s_obj_Pancreas, reduction = "pca", dims = 1:20)
+DimPlot(s_obj_Pancreas , reduction = "umap", label=TRUE)
+```
+
+```{r}
+# Step 9: Identify differentially expressed markers
+# Finding markers for each cluster, filtering for high-expressed genes
+all_markers <- FindAllMarkers(s_obj_Pancreas, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25)
+# Visualize expression relationships for selected genes (example: CD9 and CD3E)
+FeatureScatter(object = s_obj_Pancreas, feature1 = 'CD9', feature2 = 'CD3E')
+```
+```{r}
+# Step 10: Save marker gene data
+# Save the list of all differentially expressed markers to a CSV file for further analysis
+write.csv(all_markers, file = "E:/SCRNA/l_scRNA/DEGs.csv", row.names = FALSE)
+# Additional FeatureScatter for Gcg and Rnf186 as another comparison of gene expression
+FeatureScatter(object = s_obj_Pancreas, feature1 = 'Gcg', feature2 = 'Rnf186')
+```
+
+
+
+
+
+
